@@ -25,7 +25,7 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@Valid @RequestBody AuthRequest request) {
+    public ResponseEntity<?> register(@RequestBody AuthRequest request) {
         try {
             // Validate input
             if (request.getUsername() == null || request.getUsername().trim().isEmpty()) {
