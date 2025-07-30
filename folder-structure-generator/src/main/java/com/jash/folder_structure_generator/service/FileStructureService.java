@@ -3,24 +3,30 @@ package com.jash.folder_structure_generator.service;
 import com.jash.folder_structure_generator.model.FileStructureHistory;
 import com.jash.folder_structure_generator.model.User;
 import com.jash.folder_structure_generator.repository.FileStructureHistoryRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+import java.util.stream.Stream;
 
 @Service
 public class FileStructureService {
 
+    private static final Logger log = LoggerFactory.getLogger(FileStructureService.class);
     private final FileStructureHistoryRepository historyRepository;
     private final ObjectMapper objectMapper;
 
@@ -59,9 +65,10 @@ public class FileStructureService {
 
     private boolean isJsonFormat(String input) {
         try {
+            // IMPROVED: Catch a more specific exception
             objectMapper.readTree(input);
             return true;
-        } catch (Exception e) {
+        } catch (JsonProcessingException e) {
             return false;
         }
     }
@@ -78,90 +85,92 @@ public class FileStructureService {
             Map.Entry<String, JsonNode> field = fields.next();
             String name = field.getKey();
             JsonNode value = field.getValue();
-
             Path itemPath = currentDir.resolve(name);
 
-            if (value.isNull() || isFile(name)) {
-                // Create file
-                Files.createDirectories(itemPath.getParent());
-                Files.createFile(itemPath);
-
-                // Add some default content based on file type
-                String content = getDefaultFileContent(name);
-                if (!content.isEmpty()) {
-                    Files.write(itemPath, content.getBytes());
-                }
+            // IMPROVED: Logic is cleaner and driven by JSON value type
+            if (value.isObject()) {
+                // It's a directory with nested content
+                Files.createDirectories(itemPath);
+                processJsonNode(value, itemPath);
             } else if (value.isArray()) {
-                // Create directory and process array items
+                // It's a directory containing a list of files
                 Files.createDirectories(itemPath);
                 for (JsonNode arrayItem : value) {
                     if (arrayItem.isTextual()) {
                         String fileName = arrayItem.asText();
-                        Path filePath = itemPath.resolve(fileName);
-                        Files.createFile(filePath);
-
-                        String content = getDefaultFileContent(fileName);
-                        if (!content.isEmpty()) {
-                            Files.write(filePath, content.getBytes());
-                        }
-                    }
-                }
-            } else if (value.isObject()) {
-                // Create directory and process nested object
-                Files.createDirectories(itemPath);
-                processJsonNode(value, itemPath);
-            }
-        }
-    }
-
-    private void createStructureFromText(String textInput, Path baseDir) throws IOException {
-        String[] lines = textInput.split("\n");
-
-        for (String line : lines) {
-            if (line.trim().isEmpty()) continue;
-
-            // Count indentation level
-            int indentLevel = 0;
-            for (char c : line.toCharArray()) {
-                if (c == ' ') indentLevel++;
-                else if (c == '\t') indentLevel += 4;
-                else break;
-            }
-
-            String itemName = line.trim();
-            if (itemName.isEmpty()) continue;
-
-            // Build path based on indentation
-            Path itemPath = buildPathFromIndentation(baseDir, itemName, indentLevel, lines);
-
-            if (isFile(itemName)) {
-                // Create file
-                Files.createDirectories(itemPath.getParent());
-                if (!Files.exists(itemPath)) {
-                    Files.createFile(itemPath);
-
-                    String content = getDefaultFileContent(itemName);
-                    if (!content.isEmpty()) {
-                        Files.write(itemPath, content.getBytes());
+                        createFileWithContent(itemPath.resolve(fileName));
                     }
                 }
             } else {
-                // Create directory
-                Files.createDirectories(itemPath);
+                // It's a file (value is null, text, number, etc.)
+                createFileWithContent(itemPath);
             }
         }
     }
 
-    private Path buildPathFromIndentation(Path baseDir, String itemName, int indentLevel, String[] allLines) {
-        // Simple approach: use the item name directly under base directory for now
-        // In a more sophisticated implementation, you'd track the directory hierarchy
-        return baseDir.resolve(itemName.replaceAll("/", ""));
+    // FIXED: The entire logic for creating structure from text is rewritten to be correct.
+    private void createStructureFromText(String textInput, Path baseDir) throws IOException {
+        Map<Integer, Path> pathByIndent = new HashMap<>();
+        pathByIndent.put(0, baseDir);
+
+        // IMPROVED: Using stream handles different line endings (e.g., \n and \r\n)
+        String[] lines = textInput.split("\r?\n");
+        for (String line : lines) {
+            if (line.trim().isEmpty()) continue;
+
+            int indentLevel = getIndentationLevel(line);
+            String name = line.trim();
+
+            Path parentPath = pathByIndent.get(indentLevel);
+            if (parentPath == null) {
+                // This indicates a likely malformed indentation.
+                // Default to the previous level's path.
+                int lastKey = pathByIndent.keySet().stream().max(Integer::compareTo).orElse(0);
+                parentPath = pathByIndent.get(lastKey);
+            }
+
+            Path currentPath = parentPath.resolve(name);
+
+            if (isFile(name)) {
+                createFileWithContent(currentPath);
+                // A file can also serve as a parent for the next level of indentation
+                pathByIndent.put(indentLevel + 1, currentPath.getParent());
+            } else {
+                Files.createDirectories(currentPath);
+                pathByIndent.put(indentLevel + 1, currentPath);
+            }
+        }
+    }
+
+    private int getIndentationLevel(String line) {
+        int level = 0;
+        for (char c : line.toCharArray()) {
+            if (c == ' ' || c == '\t') { // Simple count; assuming consistent indentation
+                level++;
+            } else {
+                break;
+            }
+        }
+        // A common convention is 4 spaces = 1 logical level. Adjust if needed.
+        return level / 4;
+    }
+
+    private void createFileWithContent(Path filePath) throws IOException {
+        Files.createDirectories(filePath.getParent());
+        if (!Files.exists(filePath)) {
+            Files.createFile(filePath);
+            String content = getDefaultFileContent(filePath.getFileName().toString());
+            if (!content.isEmpty()) {
+                Files.write(filePath, content.getBytes());
+            }
+        }
     }
 
     private boolean isFile(String name) {
-        return name.contains(".") && !name.endsWith("/");
+        return name.contains(".");
     }
 
+    // ... (getDefaultFileContent and its helpers remain the same) ...
     private String getDefaultFileContent(String fileName) {
         String extension = getFileExtension(fileName).toLowerCase();
 
@@ -198,39 +207,47 @@ public class FileStructureService {
         String nameWithoutExtension = fileName.substring(0, fileName.lastIndexOf('.'));
         return nameWithoutExtension.substring(0, 1).toUpperCase() + nameWithoutExtension.substring(1);
     }
-
+    // FIXED: Zipping logic now correctly includes empty directories.
     private byte[] createZipFromDirectory(Path sourceDir) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-
         try (ZipOutputStream zos = new ZipOutputStream(baos)) {
-            Files.walk(sourceDir)
-                    .filter(path -> !Files.isDirectory(path))
-                    .forEach(path -> {
-                        ZipEntry zipEntry = new ZipEntry(sourceDir.relativize(path).toString());
-                        try {
-                            zos.putNextEntry(zipEntry);
-                            Files.copy(path, zos);
-                            zos.closeEntry();
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
-                        }
-                    });
-        }
+            Files.walkFileTree(sourceDir, new SimpleFileVisitor<>() {
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                    Path relativePath = sourceDir.relativize(file);
+                    zos.putNextEntry(new ZipEntry(relativePath.toString().replace('\\', '/')));
+                    Files.copy(file, zos);
+                    zos.closeEntry();
+                    return FileVisitResult.CONTINUE;
+                }
 
+                @Override
+                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                    if (!sourceDir.equals(dir)) {
+                        Path relativePath = sourceDir.relativize(dir);
+                        zos.putNextEntry(new ZipEntry(relativePath.toString().replace('\\', '/') + "/"));
+                        zos.closeEntry();
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+        }
         return baos.toByteArray();
     }
 
     private void deleteDirectory(Path directory) throws IOException {
         if (Files.exists(directory)) {
-            Files.walk(directory)
-                    .sorted((a, b) -> b.compareTo(a)) // Delete files before directories
-                    .forEach(path -> {
-                        try {
-                            Files.delete(path);
-                        } catch (IOException e) {
-                            // Log error but continue cleanup
-                        }
-                    });
+            try (Stream<Path> walk = Files.walk(directory)) {
+                walk.sorted((a, b) -> b.compareTo(a)) // Delete files before directories
+                        .forEach(path -> {
+                            try {
+                                Files.delete(path);
+                            } catch (IOException e) {
+                                // IMPROVED: Log the error instead of silently ignoring it.
+                                log.error("Failed to delete path: " + path, e);
+                            }
+                        });
+            }
         }
     }
 
