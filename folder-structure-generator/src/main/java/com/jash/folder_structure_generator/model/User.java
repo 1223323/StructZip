@@ -1,6 +1,5 @@
 package com.jash.folder_structure_generator.model;
 
-
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -20,13 +19,13 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique=true , nullable=false)
+    @Column(unique=true, nullable=false)
     private String username;
 
-    @Column(unique=true , nullable=false)
+    @Column(unique=true, nullable=false)
     private String email;
 
-    @Column(unique=true , nullable=false)
+    @Column(nullable=false)
     private String password;
 
     @Column(name = "created_at")
@@ -35,9 +34,8 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<FileStructureHistory> fileStructureHistories;
 
+    @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
     }
-
-
 }

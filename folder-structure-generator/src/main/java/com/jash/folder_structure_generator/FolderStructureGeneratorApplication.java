@@ -9,5 +9,4 @@ public class FolderStructureGeneratorApplication {
 	public static void main(String[] args) {
 		SpringApplication.run(FolderStructureGeneratorApplication.class, args);
 	}
-
 }
