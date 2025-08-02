@@ -23,18 +23,23 @@ public class FileStructureService {
 
     private final FileStructureHistoryRepository historyRepository;
     private final ObjectMapper objectMapper;
+    private final GeminiService geminiService;
 
     @Autowired
-    public FileStructureService(FileStructureHistoryRepository historyRepository) {
+    public FileStructureService(FileStructureHistoryRepository historyRepository, GeminiService geminiService) {
         this.historyRepository = historyRepository;
         this.objectMapper = new ObjectMapper();
+        this.geminiService = geminiService;
     }
 
     public byte[] generateZipFromStructure(String structureInput, String structureName, User user) throws IOException {
-        // Save to history
+        // First, validate and correct the structure using the Gemini API
+        String correctedStructure = geminiService.validateAndCorrectStructure(structureInput);
+        
+        // Save to history with the corrected structure
         FileStructureHistory history = new FileStructureHistory();
         history.setStructureName(structureName);
-        history.setStructureContent(structureInput);
+        history.setStructureContent(correctedStructure);
         history.setUser(user);
         historyRepository.save(history);
 
@@ -42,11 +47,11 @@ public class FileStructureService {
         Path tempDir = Files.createTempDirectory("file-structure-");
 
         try {
-            // Parse and create structure
-            if (isJsonFormat(structureInput)) {
-                createStructureFromJson(structureInput, tempDir);
+            // Parse and create structure from the corrected content
+            if (isJsonFormat(correctedStructure)) {
+                createStructureFromJson(correctedStructure, tempDir);
             } else {
-                createStructureFromText(structureInput, tempDir);
+                createStructureFromText(correctedStructure, tempDir);
             }
 
             // Create ZIP
@@ -116,6 +121,8 @@ public class FileStructureService {
 
     private void createStructureFromText(String textInput, Path baseDir) throws IOException {
         String[] lines = textInput.split("\n");
+        java.util.Stack<Path> pathStack = new java.util.Stack<>();
+        pathStack.push(baseDir);
 
         for (String line : lines) {
             if (line.trim().isEmpty()) continue;
@@ -131,8 +138,13 @@ public class FileStructureService {
             String itemName = line.trim();
             if (itemName.isEmpty()) continue;
 
-            // Build path based on indentation
-            Path itemPath = buildPathFromIndentation(baseDir, itemName, indentLevel, lines);
+            // Adjust path stack based on indentation level
+            while (pathStack.size() > indentLevel + 1) {
+                pathStack.pop();
+            }
+
+            Path currentDir = pathStack.peek();
+            Path itemPath = currentDir.resolve(itemName.replaceAll("/", ""));
 
             if (isFile(itemName)) {
                 // Create file
@@ -146,17 +158,14 @@ public class FileStructureService {
                     }
                 }
             } else {
-                // Create directory
+                // Create directory and add to path stack
                 Files.createDirectories(itemPath);
+                pathStack.push(itemPath);
             }
         }
     }
 
-    private Path buildPathFromIndentation(Path baseDir, String itemName, int indentLevel, String[] allLines) {
-        // Simple approach: use the item name directly under base directory for now
-        // In a more sophisticated implementation, you'd track the directory hierarchy
-        return baseDir.resolve(itemName.replaceAll("/", ""));
-    }
+
 
     private boolean isFile(String name) {
         return name.contains(".") && !name.endsWith("/");
@@ -236,5 +245,17 @@ public class FileStructureService {
 
     public List<FileStructureHistory> getUserHistory(User user) {
         return historyRepository.findByUserOrderByCreatedAtDesc(user);
+    }
+    
+    public void deleteHistoryItem(Long id, User user) {
+        FileStructureHistory history = historyRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("History item not found"));
+        
+        // Verify that the history item belongs to the user
+        if (!history.getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("Unauthorized access to history item");
+        }
+        
+        historyRepository.deleteById(id);
     }
 }
