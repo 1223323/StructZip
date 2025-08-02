@@ -12,6 +12,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
@@ -53,6 +54,24 @@ public class UserController {
 
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Failed to get history: " + e.getMessage());
+        }
+    }
+    
+    @DeleteMapping("/history/{id}")
+    public ResponseEntity<?> deleteHistoryItem(@PathVariable Long id, Authentication authentication) {
+        try {
+            // Get current user
+            String username = authentication.getName();
+            User user = userService.findByUsername(username)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            // Delete history item
+            fileStructureService.deleteHistoryItem(id, user);
+
+            return ResponseEntity.ok().body(Map.of("message", "History item deleted successfully"));
+
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Failed to delete history item: " + e.getMessage());
         }
     }
 

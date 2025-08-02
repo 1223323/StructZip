@@ -3,7 +3,6 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/StructZip.iml" filepath="$PROJECT_DIR$/.idea/StructZip.iml" />
-      <module fileurl="file://$PROJECT_DIR$/folder-structure-generator/folder-structure-generator.iml" filepath="$PROJECT_DIR$/folder-structure-generator/folder-structure-generator.iml" />
     </modules>
   </component>
 </project>
