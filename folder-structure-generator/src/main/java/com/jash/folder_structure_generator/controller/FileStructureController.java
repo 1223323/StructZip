@@ -66,4 +66,26 @@ public class FileStructureController {
             return ResponseEntity.badRequest().body("Failed to generate structure: " + e.getMessage());
         }
     }
+
+    @DeleteMapping("/history/{id}")
+    public ResponseEntity<?> deleteHistoryItem(@PathVariable Long id, Authentication authentication) {
+        try {
+            // Get current user
+            String username = authentication.getName();
+            User user = userService.findByUsername(username)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            // Delete the history item
+            fileStructureService.deleteHistoryItem(id, user);
+
+            return ResponseEntity.ok().body("History item deleted successfully");
+
+        } catch (SecurityException e) {
+            return ResponseEntity.status(403).body("Unauthorized access to history item");
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body("Failed to delete history item: " + e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Failed to delete history item: " + e.getMessage());
+        }
+    }
 }

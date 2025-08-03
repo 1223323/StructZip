@@ -11,7 +11,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.util.AbstractMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -23,23 +23,18 @@ public class FileStructureService {
 
     private final FileStructureHistoryRepository historyRepository;
     private final ObjectMapper objectMapper;
-    private final GeminiService geminiService;
 
     @Autowired
-    public FileStructureService(FileStructureHistoryRepository historyRepository, GeminiService geminiService) {
+    public FileStructureService(FileStructureHistoryRepository historyRepository) {
         this.historyRepository = historyRepository;
         this.objectMapper = new ObjectMapper();
-        this.geminiService = geminiService;
     }
 
     public byte[] generateZipFromStructure(String structureInput, String structureName, User user) throws IOException {
-        // First, validate and correct the structure using the Gemini API
-        String correctedStructure = geminiService.validateAndCorrectStructure(structureInput);
-        
-        // Save to history with the corrected structure
+        // Save to history with the original structure
         FileStructureHistory history = new FileStructureHistory();
         history.setStructureName(structureName);
-        history.setStructureContent(correctedStructure);
+        history.setStructureContent(structureInput);
         history.setUser(user);
         historyRepository.save(history);
 
@@ -47,11 +42,11 @@ public class FileStructureService {
         Path tempDir = Files.createTempDirectory("file-structure-");
 
         try {
-            // Parse and create structure from the corrected content
-            if (isJsonFormat(correctedStructure)) {
-                createStructureFromJson(correctedStructure, tempDir);
+            // Parse and create structure from the input content
+            if (isJsonFormat(structureInput)) {
+                createStructureFromJson(structureInput, tempDir);
             } else {
-                createStructureFromText(correctedStructure, tempDir);
+                createStructureFromText(structureInput, tempDir);
             }
 
             // Create ZIP
@@ -84,17 +79,17 @@ public class FileStructureService {
             String name = field.getKey();
             JsonNode value = field.getValue();
 
-            Path itemPath = currentDir.resolve(name);
+            Path itemPath = currentDir.resolve(name.replaceAll("[/\\\\]$", ""));
 
             if (value.isNull() || isFile(name)) {
                 // Create file
                 Files.createDirectories(itemPath.getParent());
-                Files.createFile(itemPath);
-
-                // Add some default content based on file type
-                String content = getDefaultFileContent(name);
-                if (!content.isEmpty()) {
-                    Files.write(itemPath, content.getBytes());
+                if (!Files.exists(itemPath)) {
+                    Files.createFile(itemPath);
+                    String content = getDefaultFileContent(name);
+                    if (!content.isEmpty()) {
+                        Files.write(itemPath, content.getBytes());
+                    }
                 }
             } else if (value.isArray()) {
                 // Create directory and process array items
@@ -103,11 +98,12 @@ public class FileStructureService {
                     if (arrayItem.isTextual()) {
                         String fileName = arrayItem.asText();
                         Path filePath = itemPath.resolve(fileName);
-                        Files.createFile(filePath);
-
-                        String content = getDefaultFileContent(fileName);
-                        if (!content.isEmpty()) {
-                            Files.write(filePath, content.getBytes());
+                        if (!Files.exists(filePath)) {
+                            Files.createFile(filePath);
+                            String content = getDefaultFileContent(fileName);
+                            if (!content.isEmpty()) {
+                                Files.write(filePath, content.getBytes());
+                            }
                         }
                     }
                 }
@@ -119,56 +115,89 @@ public class FileStructureService {
         }
     }
 
+    /**
+     * Creates a file and directory structure from an indented text string.
+     * This corrected version uses a stack that holds both the indentation level and the path,
+     * making it much more robust at determining the correct parent for each item.
+     *
+     * @param textInput The indented text representing the folder structure.
+     * @param baseDir   The base directory to create the structure in.
+     * @throws IOException if an I/O error occurs.
+     */
     private void createStructureFromText(String textInput, Path baseDir) throws IOException {
         String[] lines = textInput.split("\n");
-        java.util.Stack<Path> pathStack = new java.util.Stack<>();
-        pathStack.push(baseDir);
+        // The stack now stores a pair: the indentation level and the path.
+        java.util.Stack<Map.Entry<Integer, Path>> pathStack = new java.util.Stack<>();
+        // Start with a root-level entry with an indentation of -1.
+        pathStack.push(new AbstractMap.SimpleEntry<>(-1, baseDir));
 
         for (String line : lines) {
-            if (line.trim().isEmpty()) continue;
+            if (line.trim().isEmpty()) {
+                continue;
+            }
 
-            // Count indentation level
+            // --- Calculate the current line's indentation level ---
             int indentLevel = 0;
             for (char c : line.toCharArray()) {
-                if (c == ' ') indentLevel++;
-                else if (c == '\t') indentLevel += 4;
-                else break;
+                if (c == ' ') {
+                    indentLevel++;
+                } else if (c == '\t') {
+                    indentLevel += 4; // Treat a tab as 4 spaces for consistency.
+                } else {
+                    break;
+                }
             }
 
             String itemName = line.trim();
-            if (itemName.isEmpty()) continue;
 
-            // Adjust path stack based on indentation level
-            while (pathStack.size() > indentLevel + 1) {
+            // --- Find the correct parent directory ---
+            // Pop from the stack until we find a directory with a smaller indentation level.
+            // This is the parent of the current item.
+            while (pathStack.peek().getKey() >= indentLevel) {
                 pathStack.pop();
             }
+            Path parentDir = pathStack.peek().getValue();
 
-            Path currentDir = pathStack.peek();
-            Path itemPath = currentDir.resolve(itemName.replaceAll("/", ""));
-
+            // --- Create the file or directory ---
             if (isFile(itemName)) {
-                // Create file
-                Files.createDirectories(itemPath.getParent());
-                if (!Files.exists(itemPath)) {
-                    Files.createFile(itemPath);
-
+                Path filePath = parentDir.resolve(itemName);
+                Files.createDirectories(filePath.getParent()); // Ensure parent exists
+                if (!Files.exists(filePath)) {
+                    Files.createFile(filePath);
                     String content = getDefaultFileContent(itemName);
                     if (!content.isEmpty()) {
-                        Files.write(itemPath, content.getBytes());
+                        Files.write(filePath, content.getBytes());
                     }
                 }
             } else {
-                // Create directory and add to path stack
-                Files.createDirectories(itemPath);
-                pathStack.push(itemPath);
+                // It's a directory.
+                // Remove any trailing slashes to prevent issues with path resolution.
+                Path dirPath = parentDir.resolve(itemName.replaceAll("[/\\\\]$", ""));
+                Files.createDirectories(dirPath);
+                // Push the new directory onto the stack with its indentation level.
+                pathStack.push(new AbstractMap.SimpleEntry<>(indentLevel, dirPath));
             }
         }
     }
 
 
-
+    /**
+     * A more robust check to determine if a given name is a file or a directory.
+     * - If it ends with a slash, it's a directory.
+     * - Otherwise, if it contains a dot, we assume it's a file.
+     * - Otherwise, it's a directory.
+     */
     private boolean isFile(String name) {
-        return name.contains(".") && !name.endsWith("/");
+        String trimmedName = name.trim();
+        if (trimmedName.endsWith("/") || trimmedName.endsWith("\\")) {
+            return false; // Definitely a directory
+        }
+        // A simple but effective heuristic: if it has a file extension, it's a file.
+        // This handles cases like "com.example.project" correctly being a directory.
+        if (trimmedName.lastIndexOf('.') > trimmedName.lastIndexOf('/')) {
+            return true;
+        }
+        return false;
     }
 
     private String getDefaultFileContent(String fileName) {
@@ -204,7 +233,11 @@ public class FileStructureService {
     }
 
     private String getClassName(String fileName) {
-        String nameWithoutExtension = fileName.substring(0, fileName.lastIndexOf('.'));
+        int lastDot = fileName.lastIndexOf('.');
+        if (lastDot == -1) {
+            return fileName.substring(0, 1).toUpperCase() + fileName.substring(1);
+        }
+        String nameWithoutExtension = fileName.substring(0, lastDot);
         return nameWithoutExtension.substring(0, 1).toUpperCase() + nameWithoutExtension.substring(1);
     }
 
@@ -215,13 +248,16 @@ public class FileStructureService {
             Files.walk(sourceDir)
                     .filter(path -> !Files.isDirectory(path))
                     .forEach(path -> {
-                        ZipEntry zipEntry = new ZipEntry(sourceDir.relativize(path).toString());
+                        // We need to make sure the entry name uses forward slashes for compatibility
+                        String entryName = sourceDir.relativize(path).toString().replace('\\', '/');
+                        ZipEntry zipEntry = new ZipEntry(entryName);
                         try {
                             zos.putNextEntry(zipEntry);
                             Files.copy(path, zos);
                             zos.closeEntry();
                         } catch (IOException e) {
-                            throw new RuntimeException(e);
+                            // Using a more specific runtime exception
+                            throw new RuntimeException("Failed to add entry to zip: " + entryName, e);
                         }
                     });
         }
@@ -229,33 +265,38 @@ public class FileStructureService {
         return baos.toByteArray();
     }
 
-    private void deleteDirectory(Path directory) throws IOException {
-        if (Files.exists(directory)) {
-            Files.walk(directory)
-                    .sorted((a, b) -> b.compareTo(a)) // Delete files before directories
-                    .forEach(path -> {
-                        try {
-                            Files.delete(path);
-                        } catch (IOException e) {
-                            // Log error but continue cleanup
-                        }
-                    });
+    private void deleteDirectory(Path directory) {
+        if (directory != null && Files.exists(directory)) {
+            try {
+                Files.walk(directory)
+                        .sorted((a, b) -> b.compareTo(a)) // Delete files before directories
+                        .forEach(path -> {
+                            try {
+                                Files.delete(path);
+                            } catch (IOException e) {
+                                // Log or handle the error, but don't stop the cleanup process
+                                System.err.println("Failed to delete: " + path + " - " + e.getMessage());
+                            }
+                        });
+            } catch (IOException e) {
+                System.err.println("Failed to walk directory for deletion: " + directory + " - " + e.getMessage());
+            }
         }
     }
 
     public List<FileStructureHistory> getUserHistory(User user) {
         return historyRepository.findByUserOrderByCreatedAtDesc(user);
     }
-    
+
     public void deleteHistoryItem(Long id, User user) {
         FileStructureHistory history = historyRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("History item not found"));
-        
+
         // Verify that the history item belongs to the user
         if (!history.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("Unauthorized access to history item");
+            throw new SecurityException("Unauthorized access to history item");
         }
-        
+
         historyRepository.deleteById(id);
     }
 }
