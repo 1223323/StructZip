@@ -16,16 +16,33 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const username = localStorage.getItem('username');
-    
-    if (token && username) {
-      setUser({ username, token });
-      // Set default axios header
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    }
-    
-    setLoading(false);
+    const initializeAuth = async () => {
+      const token = localStorage.getItem('token');
+      const username = localStorage.getItem('username');
+      
+      if (token && username) {
+        try {
+          // Verify token is still valid
+          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          
+          // Optional: Verify token with server
+          // const response = await axios.get('/api/auth/verify');
+          // if (response.data.valid) {
+            setUser({ username, token });
+          // }
+        } catch (error) {
+          console.error('Token verification failed:', error);
+          // Clear invalid token
+          localStorage.removeItem('token');
+          localStorage.removeItem('username');
+          delete axios.defaults.headers.common['Authorization'];
+        }
+      }
+      
+      setLoading(false);
+    };
+
+    initializeAuth();
   }, []);
 
   const login = async (username, password) => {
@@ -50,9 +67,27 @@ export const AuthProvider = ({ children }) => {
       return { success: true };
     } catch (error) {
       console.error('Login error:', error);
+      
+      // Handle different error types
+      let errorMessage = 'Login failed. Please try again.';
+      
+      if (error.response) {
+        // Server responded with error status
+        if (error.response.status === 401) {
+          errorMessage = 'Invalid username or password.';
+        } else if (error.response.status === 429) {
+          errorMessage = 'Too many login attempts. Please try again later.';
+        } else if (error.response.data?.message) {
+          errorMessage = error.response.data.message;
+        }
+      } else if (error.request) {
+        // Network error
+        errorMessage = 'Unable to connect to server. Please check your connection.';
+      }
+      
       return { 
         success: false, 
-        message: error.response?.data || 'Login failed' 
+        message: errorMessage
       };
     }
   };
@@ -80,9 +115,25 @@ export const AuthProvider = ({ children }) => {
       return { success: true };
     } catch (error) {
       console.error('Register error:', error);
+      
+      // Handle different error types
+      let errorMessage = 'Registration failed. Please try again.';
+      
+      if (error.response) {
+        if (error.response.status === 409) {
+          errorMessage = 'Username or email already exists.';
+        } else if (error.response.status === 400) {
+          errorMessage = error.response.data?.message || 'Invalid input. Please check your information.';
+        } else if (error.response.data?.message) {
+          errorMessage = error.response.data.message;
+        }
+      } else if (error.request) {
+        errorMessage = 'Unable to connect to server. Please check your connection.';
+      }
+      
       return { 
         success: false, 
-        message: error.response?.data || 'Registration failed' 
+        message: errorMessage
       };
     }
   };
@@ -99,12 +150,21 @@ export const AuthProvider = ({ children }) => {
     delete axios.defaults.headers.common['Authorization'];
   };
 
+  const updateUser = (userData) => {
+    setUser(prevUser => ({
+      ...prevUser,
+      ...userData
+    }));
+  };
+
   const value = {
     user,
     login,
     register,
     logout,
-    loading
+    updateUser,
+    loading,
+    isAuthenticated: !!user
   };
 
   return (
