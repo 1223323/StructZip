@@ -50,7 +50,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/", "/api", "/api/auth/**").permitAll()
+                        .requestMatchers("/", "/api", "/api/auth/**", "/api/templates").permitAll() // <-- ADDED /api/templates
                         .requestMatchers("/h2-console/**").permitAll() // For testing
                         .requestMatchers("/api/generate-structure").authenticated()
                         .requestMatchers("/api/user/**").authenticated()
