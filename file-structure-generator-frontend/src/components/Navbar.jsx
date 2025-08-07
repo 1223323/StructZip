@@ -52,9 +52,9 @@ const Navbar = () => {
 
   // Variants for mobile menu animation for a cleaner look
   const mobileMenuVariants = {
-    hidden: { opacity: 0, y: -20 },
+    hidden: { opacity: 5, y: -20 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeInOut' } },
-    exit: { opacity: 0, y: -20, transition: { duration: 0.2, ease: 'easeIn' } },
+    exit: { opacity: 0, y: -20, transition: { duration: 0.1, ease: 'easeIn' } },
   };
 
   return (
@@ -94,14 +94,14 @@ const Navbar = () => {
             {/* Desktop Navigation */}
             {user && (
               // This container creates a modern "pill" shape for the navigation items.
-              <div className="hidden md:flex items-center space-x-1 bg-gray-100 dark:bg-gray-800/50 p-1 rounded-full">
+              <div className="hidden md:flex items-center space-x-1 bg-gray-300/50 dark:bg-gray-500/50 p-1 rounded-full">
                 {navLinks.map(({ path, label, icon: Icon }) => (
                   <Link to={path} key={path} className="relative px-4 py-2 rounded-full">
                     <motion.div
                       className={`flex items-center space-x-2 transition-colors ${
                         isActive(path)
                           ? 'text-[--primary]'
-                          : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+                          : 'text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white'
                       }`}
                       whileHover={{ y: isActive(path) ? 0 : -1 }}
                     >
@@ -140,7 +140,7 @@ const Navbar = () => {
                     initial={{ y: -20, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     exit={{ y: 20, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
+                    transition={{ duration: 0.1 }}
                   >
                     {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
                   </motion.div>

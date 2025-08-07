@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { History as HistoryIcon, FileText, Calendar, Eye, EyeOff, Trash2, Download, Search, ArrowDownUp, Filter, Clock, FolderOpen, X, CheckCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -14,16 +15,65 @@ const itemVariants = {
 };
 
 // Custom Tooltip Component
-const Tooltip = ({ text, children }) => (
-  <div className="relative group flex justify-center">
-    {children}
-    <div className="absolute bottom-full mb-2 w-max px-2 py-1 bg-slate-800 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
-      {text}
-    </div>
+// Tooltip rendered only when needed
+const Tooltip = ({ text, style }) => (
+  <div
+    className="absolute z-50 mb-2 w-max px-2 py-1 bg-slate-800 text-white text-xs rounded-md shadow-lg pointer-events-none opacity-100 transition-opacity duration-200"
+    style={style}
+  >
+    {text}
   </div>
 );
 
 const History = () => {
+  const [downloadLoadingId, setDownloadLoadingId] = useState(null);
+  const [hoveredAction, setHoveredAction] = useState(null);
+  const [tooltipText, setTooltipText] = useState('');
+  const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 });
+  const buttonRefs = {};
+
+  // Show tooltip above hovered button
+  const handleTooltipShow = (actionKey, e, text) => {
+    setHoveredAction(actionKey);
+    setTooltipText(text);
+    const rect = e.currentTarget.getBoundingClientRect();
+    setTooltipPos({
+      top: rect.top, // Use viewport-relative top
+      left: rect.left + rect.width / 2, // Use viewport-relative left
+    });
+  };
+  const handleTooltipHide = () => {
+    setHoveredAction(null);
+    setTooltipText('');
+  };
+
+  // Download ZIP for a history item using backend API (like Generate page)
+  const handleDownloadZip = async (item) => {
+    setDownloadLoadingId(item.id);
+    try {
+      const response = await axios.post(
+        '/api/generate-structure',
+        {
+          structureContent: item.structureContent,
+          structureName: item.structureName || 'project-structure',
+        },
+        { responseType: 'blob' }
+      );
+      const zipBlob = new Blob([response.data], { type: 'application/zip' });
+      const zipUrl = window.URL.createObjectURL(zipBlob);
+      const link = document.createElement('a');
+      link.href = zipUrl;
+      link.setAttribute('download', `${item.structureName.replace(/[^a-z0-9]+/gi, '-') || 'project-structure'}.zip`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => window.URL.revokeObjectURL(zipUrl), 200);
+    } catch (err) {
+      setError('Failed to download ZIP. Please try again.');
+    } finally {
+      setDownloadLoadingId(null);
+    }
+  };
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -169,9 +219,38 @@ const History = () => {
                         </div>
                       </div>
                       <div className="flex space-x-1 ml-4">
-                        <Tooltip text="View Content"><button onClick={() => toggleExpand(item.id)} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">{expandedItems.has(item.id) ? <EyeOff size={16} /> : <Eye size={16} />}</button></Tooltip>
-                        <Tooltip text="Download ZIP"><button onClick={() => handleRegenerate(item)} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"><Download size={16} /></button></Tooltip>
-                        <Tooltip text="Delete"><button onClick={() => setDeleteConfirmation(item.id)} className="p-2 rounded-full text-red-500 hover:bg-red-500/10 transition-colors"><Trash2 size={16} /></button></Tooltip>
+                        <button
+                          ref={el => buttonRefs[`view-${item.id}`] = el}
+                          onMouseEnter={e => handleTooltipShow(`view-${item.id}`, e, 'View Content')}
+                          onMouseLeave={handleTooltipHide}
+                          onClick={() => toggleExpand(item.id)}
+                          className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                        >
+                          {expandedItems.has(item.id) ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                        <button
+                          ref={el => buttonRefs[`download-${item.id}`] = el}
+                          onMouseEnter={e => handleTooltipShow(`download-${item.id}`, e, downloadLoadingId === item.id ? 'Preparing ZIP...' : 'Download ZIP')}
+                          onMouseLeave={handleTooltipHide}
+                          onClick={() => handleDownloadZip(item)}
+                          className={`p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors ${downloadLoadingId === item.id ? 'opacity-60 pointer-events-none' : ''}`}
+                          disabled={downloadLoadingId === item.id}
+                        >
+                          {downloadLoadingId === item.id ? (
+                            <span className="animate-spin"><Download size={16} /></span>
+                          ) : (
+                            <Download size={16} />
+                          )}
+                        </button>
+                        <button
+                          ref={el => buttonRefs[`delete-${item.id}`] = el}
+                          onMouseEnter={e => handleTooltipShow(`delete-${item.id}`, e, 'Delete')}
+                          onMouseLeave={handleTooltipHide}
+                          onClick={() => setDeleteConfirmation(item.id)}
+                          className="p-2 rounded-full text-red-500 hover:bg-red-500/10 transition-colors"
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </div>
                     </div>
                     <AnimatePresence>
@@ -209,6 +288,21 @@ const History = () => {
           </motion.div>
         )}
       </AnimatePresence>
+          {/* Global Tooltip rendered in a portal for correct positioning */}
+      {hoveredAction && createPortal(
+        <Tooltip
+          text={tooltipText}
+          style={{
+            position: 'fixed', // Use fixed positioning relative to viewport
+            top: tooltipPos.top,
+            left: tooltipPos.left,
+            transform: 'translate(-50%, -110%)', // Center and add small gap
+            pointerEvents: 'none',
+            zIndex: 9999,
+          }}
+        />,
+        document.body
+      )}
     </div>
   );
 };
