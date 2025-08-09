@@ -30,7 +30,7 @@ services:
       JWT_SECRET: "change-this-to-a-long-random-secret"
       JWT_EXPIRATION: "86400000" # 1 day in ms (adjust if your property expects different key)
     ports:
-      - "8080:8080"
+      - "0.0.0.0:8080:8080"
     depends_on:
       - mysql
     networks:
