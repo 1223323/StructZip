@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+// TemplatesInlineSection.jsx - Fixed version
+import React, { useEffect, useState, useRef } from 'react'; // <-- useRef has been added here
 import axios from 'axios';
 import { Loader2, ServerCrash, CheckCircle, FileText, Code2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -36,9 +37,9 @@ const FormatSelectionModal = ({ template, onSelect, onClose }) => {
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
       >
-        <div className="p-6 border-b border-[--border]">
-          <h3 className="text-xl font-bold text-[--text] mb-2">Choose Output Format</h3>
-          <p className="text-[--text-muted]">Select how you want to define your project structure for <span className="font-semibold text-[--primary]">{template.name}</span></p>
+        <div className="p-6 border-b border-slate-200 dark:border-slate-700">
+          <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Choose Output Format</h3>
+          <p className="text-slate-600 dark:text-slate-400">Select how you want to define your project structure for <span className="font-semibold text-indigo-600 dark:text-indigo-400">{template?.name || 'this template'}</span></p>
         </div>
         
         <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -48,19 +49,19 @@ const FormatSelectionModal = ({ template, onSelect, onClose }) => {
               <motion.button
                 key={format.type}
                 onClick={() => onSelect(template, format.type)}
-                className={`relative p-6 rounded-xl border-2 text-left transition-all duration-200 hover:scale-[1.02] border-${format.color}-200 dark:border-${format.color}-800/50 hover:border-${format.color}-400 dark:hover:border-${format.color}-600 bg-${format.color}-50/50 dark:bg-${format.color}-900/20 hover:bg-${format.color}-100/70 dark:hover:bg-${format.color}-900/40`}
+                className="relative p-6 rounded-xl border-2 text-left transition-all duration-200 hover:scale-[1.02] border-blue-200 dark:border-blue-800/50 hover:border-blue-400 dark:hover:border-blue-600 bg-blue-50/50 dark:bg-blue-900/20 hover:bg-blue-100/70 dark:hover:bg-blue-900/40"
                 whileHover={{ y: -2 }}
                 whileTap={{ scale: 0.98 }}
               >
                 <div className="flex items-start space-x-4">
-                  <div className={`p-3 rounded-lg bg-${format.color}-500/10 dark:bg-${format.color}-500/20`}>
-                    <Icon className={`h-6 w-6 text-${format.color}-600 dark:text-${format.color}-400`} />
+                  <div className="p-3 rounded-lg bg-blue-500/10 dark:bg-blue-500/20">
+                    <Icon className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-semibold text-[--text] mb-1">{format.title}</h4>
-                    <p className="text-sm text-[--text-muted] mb-3">{format.description}</p>
+                    <h4 className="font-semibold text-slate-900 dark:text-white mb-1">{format.title}</h4>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">{format.description}</p>
                     <div className="bg-white/50 dark:bg-slate-800/50 rounded-md p-2">
-                      <pre className="text-xs text-[--text-muted] font-mono overflow-hidden">
+                      <pre className="text-xs text-slate-600 dark:text-slate-400 font-mono overflow-hidden">
                         {format.example}
                       </pre>
                     </div>
@@ -71,10 +72,10 @@ const FormatSelectionModal = ({ template, onSelect, onClose }) => {
           })}
         </div>
         
-        <div className="p-6 border-t border-[--border] flex justify-end">
+        <div className="p-6 border-t border-slate-200 dark:border-slate-700 flex justify-end">
           <button
             onClick={onClose}
-            className="btn btn-secondary"
+            className="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
           >
             Cancel
           </button>
@@ -84,7 +85,7 @@ const FormatSelectionModal = ({ template, onSelect, onClose }) => {
   );
 };
 
-const TemplatesInlineSection = ({ onSelectTemplate }) => {
+const TemplatesInlineSection = ({ onSelectTemplate, templates: templatesProp, loading: loadingProp, error: errorProp }) => {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -94,24 +95,40 @@ const TemplatesInlineSection = ({ onSelectTemplate }) => {
   const [scrollPosition, setScrollPosition] = useState(0);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
-  const scrollContainerRef = React.useRef(null);
+  const scrollContainerRef = useRef(null);
+
+  // Sync external props when provided
+  useEffect(() => {
+    if (typeof templatesProp !== 'undefined') {
+      setTemplates(Array.isArray(templatesProp) ? templatesProp : []);
+      setLoading(!!loadingProp);
+      setError(errorProp || '');
+    }
+  }, [templatesProp, loadingProp, errorProp]);
 
   useEffect(() => {
+    // If templates are provided by parent, skip internal fetch
+    if (typeof templatesProp !== 'undefined') return;
+
     const fetchTemplates = async () => {
       try {
         setLoading(true);
         const response = await axios.get('/api/templates');
-        const featured = response.data.slice(0, 12);
+        // Ensure we always have an array and limit to 12 featured templates
+        const templatesData = Array.isArray(response.data) ? response.data : [];
+        const featured = templatesData.slice(0, 12);
         setTemplates(featured);
         setError('');
       } catch (err) {
+        console.error('Template fetch error:', err);
         setError('Could not load templates.');
+        setTemplates([]); // Set empty array on error
       } finally {
         setLoading(false);
       }
     };
     fetchTemplates();
-  }, []);
+  }, [templatesProp]);
 
   const handleScroll = (direction) => {
     const container = scrollContainerRef.current;
@@ -139,7 +156,7 @@ const TemplatesInlineSection = ({ onSelectTemplate }) => {
     );
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     const container = scrollContainerRef.current;
     if (container) {
       container.addEventListener('scroll', updateScrollButtons);
@@ -149,15 +166,18 @@ const TemplatesInlineSection = ({ onSelectTemplate }) => {
   }, [templates]);
 
   const handleTemplateClick = (template) => {
+    if (!template) return;
     setSelectedTemplate(template);
     setShowFormatModal(true);
   };
 
   const handleFormatSelect = (template, format) => {
+    if (!template) return;
+    
     setSelectedId(template.id);
     
     // Convert template content to selected format
-    let convertedContent = template.content;
+    let convertedContent = template.content || '';
     
     if (template.format !== format) {
       if (format === 'json' && template.format === 'text') {
@@ -181,6 +201,8 @@ const TemplatesInlineSection = ({ onSelectTemplate }) => {
   };
 
   const convertTextToJson = (textContent) => {
+    if (!textContent) return '{}';
+    
     const lines = textContent.split('\n');
     const root = {};
     const stack = [{ dir: root, indent: -1 }];
@@ -211,6 +233,8 @@ const TemplatesInlineSection = ({ onSelectTemplate }) => {
   };
 
   const convertJsonToText = (jsonContent) => {
+    if (!jsonContent) return '';
+    
     try {
       const parsed = JSON.parse(jsonContent);
       return convertObjectToText(parsed, '');
@@ -220,9 +244,11 @@ const TemplatesInlineSection = ({ onSelectTemplate }) => {
   };
 
   const convertObjectToText = (obj, prefix) => {
+    if (!obj || typeof obj !== 'object') return '';
+    
     let result = '';
     for (const [key, value] of Object.entries(obj)) {
-      if (value === null) {
+      if (value === null || value === undefined) {
         result += `${prefix}${key}\n`;
       } else if (typeof value === 'object' && !Array.isArray(value)) {
         result += `${prefix}${key}/\n`;
@@ -241,7 +267,7 @@ const TemplatesInlineSection = ({ onSelectTemplate }) => {
 
   if (loading) {
     return (
-      <div className="flex items-center space-x-2 py-8 text-[--text-muted] justify-center">
+      <div className="flex items-center space-x-2 py-8 text-slate-600 dark:text-slate-400 justify-center">
         <Loader2 className="animate-spin" size={24} />
         <span>Loading templates...</span>
       </div>
@@ -257,7 +283,13 @@ const TemplatesInlineSection = ({ onSelectTemplate }) => {
     );
   }
 
-  if (!templates.length) return null;
+  if (!templates.length) {
+    return (
+      <div className="text-center py-8 text-slate-600 dark:text-slate-400">
+        <p>No templates available at the moment.</p>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -271,9 +303,9 @@ const TemplatesInlineSection = ({ onSelectTemplate }) => {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -10 }}
                 onClick={() => handleScroll('left')}
-                className="absolute left-0 top-1/2 -translate-y-1/2 z-10 p-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm rounded-full shadow-lg border border-[--border] hover:bg-white dark:hover:bg-slate-900 transition-colors"
+                className="absolute left-0 top-1/2 -translate-y-1/2 z-10 p-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm rounded-full shadow-lg border border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-900 transition-colors"
               >
-                <ChevronLeft className="h-5 w-5 text-[--text]" />
+                <ChevronLeft className="h-5 w-5 text-slate-900 dark:text-white" />
               </motion.button>
             )}
           </AnimatePresence>
@@ -286,9 +318,9 @@ const TemplatesInlineSection = ({ onSelectTemplate }) => {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 10 }}
                 onClick={() => handleScroll('right')}
-                className="absolute right-0 top-1/2 -translate-y-1/2 z-10 p-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm rounded-full shadow-lg border border-[--border] hover:bg-white dark:hover:bg-slate-900 transition-colors"
+                className="absolute right-0 top-1/2 -translate-y-1/2 z-10 p-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm rounded-full shadow-lg border border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-900 transition-colors"
               >
-                <ChevronRight className="h-5 w-5 text-[--text]" />
+                <ChevronRight className="h-5 w-5 text-slate-900 dark:text-white" />
               </motion.button>
             )}
           </AnimatePresence>
@@ -296,58 +328,62 @@ const TemplatesInlineSection = ({ onSelectTemplate }) => {
           {/* Templates container */}
           <div
             ref={scrollContainerRef}
-            className="flex overflow-x-auto space-x-4 pb-4 px-8 scrollbar-hide"
+            className="flex overflow-x-auto space-x-4 pb-4 px-8"
             style={{
               scrollbarWidth: 'none',
               msOverflowStyle: 'none',
-              WebkitScrollbar: { display: 'none' }
             }}
           >
-            {templates.map((template, index) => (
-              <motion.div
-                key={template.id}
-                className={`min-w-[280px] max-w-[280px] bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm rounded-xl border-2 p-5 flex flex-col flex-shrink-0 cursor-pointer transition-all duration-200 relative group ${
-                  selectedId === template.id 
-                    ? 'border-[--primary] bg-indigo-50/80 dark:bg-indigo-900/30 shadow-lg shadow-[--primary]/20' 
-                    : 'border-transparent hover:border-[--primary]/40 hover:shadow-md'
-                }`}
-                onClick={() => handleTemplateClick(template)}
-                whileHover={{ y: -3, scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                initial={{ opacity: 0, x: 50 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
-              >
-                <div className="flex-1">
-                  <div className="flex justify-between items-start mb-3">
-                    <h3 className="font-bold text-[--text] text-lg pr-4 line-clamp-1">
-                      {template.name}
-                    </h3>
-                    {selectedId === template.id && (
-                      <motion.div
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        className="p-1 bg-green-500 rounded-full text-white flex-shrink-0"
-                      >
-                        <CheckCircle size={16} />
-                      </motion.div>
-                    )}
+            {Array.isArray(templates) && templates.map((template, index) => {
+              // Add null check for template
+              if (!template) return null;
+              
+              return (
+                <motion.div
+                  key={template.id || index}
+                  className={`min-w-[280px] max-w-[280px] bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm rounded-xl border-2 p-5 flex flex-col flex-shrink-0 cursor-pointer transition-all duration-200 relative group ${
+                    selectedId === template.id 
+                      ? 'border-indigo-500 bg-indigo-50/80 dark:bg-indigo-900/30 shadow-lg shadow-indigo-500/20' 
+                      : 'border-transparent hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md'
+                  }`}
+                  onClick={() => handleTemplateClick(template)}
+                  whileHover={{ y: -3, scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  initial={{ opacity: 0, x: 50 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                >
+                  <div className="flex-1">
+                    <div className="flex justify-between items-start mb-3">
+                      <h3 className="font-bold text-slate-900 dark:text-white text-lg pr-4 line-clamp-1">
+                        {template.name || 'Untitled Template'}
+                      </h3>
+                      {selectedId === template.id && (
+                        <motion.div
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          className="p-1 bg-green-500 rounded-full text-white flex-shrink-0"
+                        >
+                          <CheckCircle size={16} />
+                        </motion.div>
+                      )}
+                    </div>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 mb-4 line-clamp-2 leading-relaxed">
+                      {template.description || 'No description available'}
+                    </p>
                   </div>
-                  <p className="text-sm text-[--text-muted] mb-4 line-clamp-2 leading-relaxed">
-                    {template.description}
-                  </p>
-                </div>
-                
-                <div className="flex items-center justify-end">
-                  <div className="text-xs text-[--text-muted] opacity-0 group-hover:opacity-100 transition-opacity">
-                    Click to customize
+                  
+                  <div className="flex items-center justify-end">
+                    <div className="text-xs text-slate-600 dark:text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                      Click to customize
+                    </div>
                   </div>
-                </div>
 
-                {/* Hover overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-[--primary]/5 to-transparent rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-              </motion.div>
-            ))}
+                  {/* Hover overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-indigo-500/5 to-transparent rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                </motion.div>
+              );
+            })}
           </div>
         </div>
       </div>

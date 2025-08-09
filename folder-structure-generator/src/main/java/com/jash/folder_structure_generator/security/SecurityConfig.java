@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -50,6 +51,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/", "/api", "/api/auth/**", "/api/templates").permitAll() // <-- ADDED /api/templates
                         .requestMatchers("/h2-console/**").permitAll() // For testing
                         .requestMatchers("/api/generate-structure").authenticated()
@@ -66,9 +68,21 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(Arrays.asList("*"));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        // Allow specific origins for production and development
+        configuration.setAllowedOriginPatterns(Arrays.asList(
+            "https://structzip.jashchauhan.tech",  // Your custom Netlify domain
+            "https://*.netlify.app",               // Netlify preview URLs
+            "https://*.ngrok-free.app",            // ngrok URLs
+            "https://*.ngrok.io",                  // Alternative ngrok URLs
+            "https://*.ngrok-free.app",            // New ngrok free tier domain
+            "http://localhost:3000",               // Local development
+            "http://localhost:5173",               // Vite dev server
+            "http://localhost:8080"                // Local backend for testing
+        ));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
+        configuration.setExposedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With"));
+        configuration.setMaxAge(3600L);
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
+import api from '../service/api';
 
 const AuthContext = createContext();
 
@@ -47,7 +48,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (username, password) => {
     try {
-      const response = await axios.post('/api/auth/login', {
+      const response = await api.post('/api/auth/login', {
         username,
         password
       });
@@ -61,7 +62,8 @@ export const AuthProvider = ({ children }) => {
       // Set user state
       setUser({ username: returnedUsername, token });
       
-      // Set default axios header
+      // Optional: api instance reads token from localStorage via interceptor
+      // If you also use raw axios elsewhere, you may keep this line:
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       
       return { success: true };
@@ -94,7 +96,7 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (username, email, password) => {
     try {
-      const response = await axios.post('/api/auth/register', {
+      const response = await api.post('/api/auth/register', {
         username,
         email,
         password

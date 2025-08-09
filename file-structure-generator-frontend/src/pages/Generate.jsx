@@ -1,5 +1,6 @@
+// Generate.jsx - Fixed version
 import React, { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
+import api from '../service/api';
 import { Download, FileText, AlertCircle, Sparkles, X, Check, LayoutGrid, Zap, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import GeminiChat from '../components/GeminiChat';
@@ -31,8 +32,8 @@ const FormatSwitcher = ({ format, setFormat }) => (
         onClick={() => setFormat(f)}
         className={`relative flex-1 py-2 px-4 text-sm font-semibold rounded-lg transition-all ${
           format === f 
-            ? 'text-[--text] shadow-sm' 
-            : 'text-[--text-muted] hover:text-[--text]'
+            ? 'text-slate-900 dark:text-white shadow-sm' 
+            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
         }`}
       >
         {f.toUpperCase()}
@@ -59,9 +60,38 @@ const Generate = () => {
   const [generatedZip, setGeneratedZip] = useState(null);
   const [highlightEditor, setHighlightEditor] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [templates, setTemplates] = useState([]);
+  const [templatesLoading, setTemplatesLoading] = useState(true);
+  const [templatesError, setTemplatesError] = useState('');
 
   const modalRef = useRef(null);
   const editorRef = useRef(null);
+
+  // Fetch templates once and share with children
+  useEffect(() => {
+    let active = true;
+    const fetchTemplates = async () => {
+      try {
+        setTemplatesLoading(true);
+        const res = await api.get('/api/templates');
+        const data = Array.isArray(res.data) ? res.data : [];
+        if (active) {
+          setTemplates(data);
+          setTemplatesError('');
+        }
+      } catch (e) {
+        console.error('Failed to load templates:', e);
+        if (active) {
+          setTemplatesError('Could not load templates.');
+          setTemplates([]);
+        }
+      } finally {
+        if (active) setTemplatesLoading(false);
+      }
+    };
+    fetchTemplates();
+    return () => { active = false; };
+  }, []);
 
   // Enhanced example structures with better formatting
   const exampleTextStructure = `src/
@@ -170,7 +200,7 @@ README.md
     setError('');
     
     try {
-      const response = await axios.post('/api/generate-structure', { 
+      const response = await api.post('/api/generate-structure', { 
         structureContent: structureInput, 
         structureName: structureName || 'generated-structure',
         format: inputFormat
@@ -218,9 +248,11 @@ README.md
         setShowSuccessModal(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    if (showSuccessModal) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showSuccessModal]);
 
   return (
     <div className="max-w-6xl mx-auto space-y-16 py-12 px-4">
@@ -231,13 +263,13 @@ README.md
         animate="visible" 
         variants={itemVariants}
       >
-        <h1 className="text-4xl md:text-6xl font-bold mb-6 text-[--text] leading-tight">
+        <h1 className="text-4xl md:text-6xl font-bold mb-6 text-slate-900 dark:text-white leading-tight">
           Create Your 
-          <span className="text-[--primary] block md:inline md:ml-4">
+          <span className="text-indigo-600 dark:text-indigo-400 block md:inline md:ml-4">
             Structure
           </span>
         </h1>
-        <p className="text-xl text-[--text-muted] max-w-3xl mx-auto leading-relaxed">
+        <p className="text-xl text-slate-600 dark:text-slate-400 max-w-3xl mx-auto leading-relaxed">
           Instantly scaffold any project from a template or your own design. 
           Generate organized file structures with a single click.
         </p>
@@ -254,31 +286,36 @@ README.md
         <div className="mb-12">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h3 className="font-bold text-2xl text-[--text] mb-2">
+              <h3 className="font-bold text-2xl text-slate-900 dark:text-white mb-2">
                 1. Start with a Template
               </h3>
-              <p className="text-[--text-muted]">
+              <p className="text-slate-600 dark:text-slate-400">
                 Choose from our curated collection or browse all templates
               </p>
             </div>
             <button 
               onClick={() => setIsGalleryOpen(true)} 
-              className="btn btn-secondary flex items-center space-x-2 hover:scale-105 transition-transform"
+              className="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition-all flex items-center space-x-2 hover:scale-105"
             >
               <LayoutGrid className="h-4 w-4" />
               <span>Browse All</span>
             </button>
           </div>
-          <TemplatesInlineSection onSelectTemplate={handleSelectTemplate} />
+          <TemplatesInlineSection 
+            onSelectTemplate={handleSelectTemplate}
+            templates={templates}
+            loading={templatesLoading}
+            error={templatesError}
+          />
         </div>
 
         {/* Divider */}
         <div className="flex items-center my-12">
-          <div className="flex-grow h-px bg-gradient-to-r from-transparent via-[--border] to-transparent"></div>
-          <span className="mx-6 text-sm font-bold text-[--text-muted] bg-slate-100 dark:bg-slate-800 px-4 py-2 rounded-full">
+          <div className="flex-grow h-px bg-gradient-to-r from-transparent via-slate-300 dark:via-slate-600 to-transparent"></div>
+          <span className="mx-6 text-sm font-bold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-4 py-2 rounded-full">
             OR CUSTOMIZE
           </span>
-          <div className="flex-grow h-px bg-gradient-to-r from-transparent via-[--border] to-transparent"></div>
+          <div className="flex-grow h-px bg-gradient-to-r from-transparent via-slate-300 dark:via-slate-600 to-transparent"></div>
         </div>
 
         {/* Step 2: Customization */}
@@ -286,12 +323,12 @@ README.md
           ref={editorRef} 
           className={`space-y-8 transition-all duration-700 rounded-2xl p-6 ${
             highlightEditor 
-              ? 'bg-[--primary]/5 shadow-lg shadow-[--primary]/20 border-2 border-[--primary]/30' 
+              ? 'bg-indigo-50 dark:bg-indigo-900/20 shadow-lg shadow-indigo-500/20 border-2 border-indigo-300 dark:border-indigo-600' 
               : 'bg-transparent'
           }`}
         >
           <motion.div variants={itemVariants}>
-            <h3 className="font-bold text-2xl text-[--text] mb-6">
+            <h3 className="font-bold text-2xl text-slate-900 dark:text-white mb-6">
               2. Customize Your Project
             </h3>
             
@@ -302,21 +339,21 @@ README.md
                   initial={{ opacity: 0, y: -20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
-                  className="mb-6 p-4 bg-[--primary]/10 border border-[--primary]/20 rounded-xl"
+                  className="mb-6 p-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
-                      <div className="w-2 h-2 bg-[--primary] rounded-full animate-pulse"></div>
-                      <span className="text-sm font-medium text-[--text]">
+                      <div className="w-2 h-2 bg-indigo-600 dark:bg-indigo-400 rounded-full animate-pulse"></div>
+                      <span className="text-sm font-medium text-slate-900 dark:text-white">
                         Using template: <strong>{selectedTemplate.name}</strong>
                       </span>
                     </div>
                     <button
                       onClick={handleClearTemplate}
-                      className="p-1 hover:bg-[--primary]/20 rounded-full transition-colors"
+                      className="p-1 hover:bg-indigo-100 dark:hover:bg-indigo-800 rounded-full transition-colors"
                       title="Clear template"
                     >
-                      <X size={16} className="text-[--primary]" />
+                      <X size={16} className="text-indigo-600 dark:text-indigo-400" />
                     </button>
                   </div>
                 </motion.div>
@@ -325,13 +362,13 @@ README.md
 
             {/* Project Name */}
             <div className="mb-6">
-              <label htmlFor="structureName" className="block text-sm font-semibold text-[--text-muted] mb-3">
+              <label htmlFor="structureName" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
                 Project Name
               </label>
               <input 
                 id="structureName" 
                 type="text" 
-                className="w-full py-3 px-4 text-base bg-white/70 dark:bg-slate-800/70 border-2 border-slate-200 dark:border-slate-700 rounded-xl focus:border-[--primary] focus:ring-4 focus:ring-[--primary]/20 outline-none transition-all" 
+                className="w-full py-3 px-4 text-base bg-white/70 dark:bg-slate-800/70 border-2 border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 outline-none transition-all" 
                 placeholder="my-awesome-project" 
                 value={structureName} 
                 onChange={(e) => setStructureName(e.target.value)} 
@@ -341,7 +378,7 @@ README.md
             {/* Format Selection and Editor */}
             <div>
               <div className="flex items-center justify-between mb-4">
-                <label className="block text-sm font-semibold text-[--text-muted]">
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
                   File Structure Definition
                 </label>
                 <FormatSwitcher format={inputFormat} setFormat={setInputFormat} />
@@ -365,14 +402,14 @@ README.md
                 </AnimatePresence>
                 <textarea
                   id="structureInput"
-                  className="relative z-20 w-full h-96 p-6 font-mono text-sm bg-white/50 dark:bg-slate-800/50 border-2 border-slate-200 dark:border-slate-700 rounded-xl focus:border-[--primary] focus:ring-4 focus:ring-[--primary]/20 outline-none transition-all duration-300 leading-relaxed resize-none"
+                  className="relative z-20 w-full h-96 p-6 font-mono text-sm bg-white/50 dark:bg-slate-800/50 border-2 border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 outline-none transition-all duration-300 leading-relaxed resize-none"
                   value={structureInput}
                   onChange={(e) => setStructureInput(e.target.value)}
                   placeholder={`Enter your ${inputFormat} structure here...`}
                 />
                 
                 {/* Character count */}
-                <div className="absolute bottom-3 right-3 text-xs text-[--text-muted] bg-white/80 dark:bg-slate-800/80 px-2 py-1 rounded">
+                <div className="absolute bottom-3 right-3 text-xs text-slate-500 dark:text-slate-400 bg-white/80 dark:bg-slate-800/80 px-2 py-1 rounded">
                   {structureInput.length} characters
                 </div>
               </div>
@@ -384,13 +421,13 @@ README.md
         <AnimatePresence>
           {error && (
             <motion.div 
-              className="alert alert-error mt-8" 
+              className="mt-8 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-center" 
               initial={{ opacity: 0, y: -10 }} 
               animate={{ opacity: 1, y: 0 }} 
               exit={{ opacity: 0, y: -10 }}
             >
-              <AlertCircle className="h-5 w-5 mr-2" />
-              {error}
+              <AlertCircle className="h-5 w-5 mr-2 text-red-600 dark:text-red-400" />
+              <span className="text-red-700 dark:text-red-300">{error}</span>
             </motion.div>
           )}
         </AnimatePresence>
@@ -400,17 +437,17 @@ README.md
           className="flex flex-col items-center justify-center pt-12" 
           variants={itemVariants}
         >
-          <h3 className="font-bold text-2xl text-[--text] mb-6">
+          <h3 className="font-bold text-2xl text-slate-900 dark:text-white mb-6">
             3. Generate Your ZIP
           </h3>
-          <p className="text-[--text-muted] mb-8 text-center max-w-md">
+          <p className="text-slate-600 dark:text-slate-400 mb-8 text-center max-w-md">
             Your project structure will be generated and packaged into a downloadable ZIP file
           </p>
           
           <button 
             onClick={handleGenerate} 
             disabled={loading || !structureInput.trim()} 
-            className="btn btn-primary btn-xl disabled:opacity-60 hover:scale-105 transition-all duration-200 shadow-lg shadow-[--primary]/25"
+            className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg shadow-indigo-500/25 hover:scale-105 disabled:hover:scale-100 disabled:cursor-not-allowed"
           >
             <AnimatePresence mode="wait">
               {loading ? (
@@ -445,7 +482,10 @@ README.md
       <TemplateGallery 
         isOpen={isGalleryOpen} 
         onClose={() => setIsGalleryOpen(false)} 
-        onSelectTemplate={handleSelectTemplate} 
+        onSelectTemplate={handleSelectTemplate}
+        templates={templates}
+        loading={templatesLoading}
+        error={templatesError}
       />
       
       {/* Success Modal */}
@@ -475,22 +515,22 @@ README.md
                 </motion.div>
                 
                 <div>
-                  <h3 className="text-2xl font-bold text-[--text] mb-3">
+                  <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">
                     Structure Generated!
                   </h3>
-                  <p className="text-[--text-muted]">
+                  <p className="text-slate-600 dark:text-slate-400">
                     Your project structure has been successfully created and is ready to download.
                   </p>
                 </div>
                 
                 <div className="bg-slate-100/80 dark:bg-slate-800/80 rounded-xl p-4 flex items-center justify-between text-left">
                   <div className="flex items-center min-w-0">
-                    <FileText className="h-6 w-6 text-[--text-muted] mr-3 flex-shrink-0" />
+                    <FileText className="h-6 w-6 text-slate-600 dark:text-slate-400 mr-3 flex-shrink-0" />
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-[--text] truncate">
+                      <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
                         {generatedZip?.name}
                       </p>
-                      <p className="text-xs text-[--text-muted]">
+                      <p className="text-xs text-slate-600 dark:text-slate-400">
                         ZIP Archive
                       </p>
                     </div>
@@ -500,7 +540,7 @@ README.md
                 
                 <button 
                   onClick={handleDownload} 
-                  className="w-full btn btn-primary py-4 text-lg font-semibold hover:scale-105 transition-all duration-200"
+                  className="w-full px-6 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl hover:scale-105 transition-all duration-200 flex items-center justify-center"
                 >
                   <Download className="h-5 w-5 mr-3" />
                   Download ZIP

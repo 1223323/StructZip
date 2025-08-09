@@ -136,7 +136,7 @@ public class FileStructureService {
                 continue;
             }
 
-            // --- Calculate the current line's indentation level ---
+            // --- Calculate the current line's indentation level ---e
             int indentLevel = 0;
             for (char c : line.toCharArray()) {
                 if (c == ' ') {

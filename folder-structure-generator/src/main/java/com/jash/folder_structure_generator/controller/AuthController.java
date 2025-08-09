@@ -5,6 +5,7 @@ import com.jash.folder_structure_generator.dto.AuthResponse;
 import com.jash.folder_structure_generator.model.User;
 import com.jash.folder_structure_generator.security.JwtUtil;
 import com.jash.folder_structure_generator.service.UserService;
+import com.jash.folder_structure_generator.service.EmailService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -17,11 +18,13 @@ public class AuthController {
 
     private final UserService userService;
     private final JwtUtil jwtUtil;
+    private final EmailService emailService;
 
     @Autowired
-    public AuthController(UserService userService, JwtUtil jwtUtil) {
+    public AuthController(UserService userService, JwtUtil jwtUtil, EmailService emailService) {
         this.userService = userService;
         this.jwtUtil = jwtUtil;
+        this.emailService = emailService;
     }
 
     @PostMapping("/register")
@@ -57,6 +60,9 @@ public class AuthController {
             // Generate token
             String token = jwtUtil.generateToken(savedUser.getUsername());
 
+            // Send welcome email
+            emailService.sendWelcomeEmail(savedUser.getEmail(), savedUser.getUsername());
+
             return ResponseEntity.ok(new AuthResponse(token, savedUser.getUsername(), "User registered successfully"));
 
         } catch (Exception e) {
@@ -90,6 +96,9 @@ public class AuthController {
 
             // Generate token
             String token = jwtUtil.generateToken(user.getUsername());
+
+            // Send login notification email
+            emailService.sendLoginNotification(user.getEmail(), user.getUsername());
 
             return ResponseEntity.ok(new AuthResponse(token, user.getUsername(), "Login successful"));
 

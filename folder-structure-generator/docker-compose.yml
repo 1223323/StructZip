@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: structzip-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: structzip_db
+      MYSQL_USER: structzip_user
+      MYSQL_PASSWORD: structzip_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - structzip-network
+
+  backend:
+    build: .
+    container_name: structzip-backend
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/structzip_db
+      SPRING_DATASOURCE_USERNAME: structzip_user
+      SPRING_DATASOURCE_PASSWORD: structzip_password
+      SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME}
+      SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      # JWT configuration (required by application properties)
+      JWT_SECRET: "change-this-to-a-long-random-secret"
+      JWT_EXPIRATION: "86400000" # 1 day in ms (adjust if your property expects different key)
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mysql
+    networks:
+      - structzip-network
+
+volumes:
+  mysql_data:
+
+networks:
+  structzip-network:
+    driver: bridge

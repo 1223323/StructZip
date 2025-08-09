@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+// TemplateGallery.jsx - Fixed version
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Loader2, Search, ServerCrash, CheckCircle, Download, FileText, Code, Filter, Grid, List } from 'lucide-react';
@@ -166,25 +167,25 @@ const FormatSelectionModal = ({ template, onSelect, onClose }) => {
         exit={{ scale: 0.9, opacity: 0 }}
       >
         {/* Header */}
-        <div className="p-6 border-b border-[--border] flex-shrink-0">
+        <div className="p-6 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-xl font-bold text-[--text] mb-2">Choose & Preview Format</h3>
-              <p className="text-[--text-muted]">Select and preview how you want to structure <span className="font-semibold text-[--primary]">{template.name}</span></p>
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Choose & Preview Format</h3>
+              <p className="text-slate-600 dark:text-slate-400">Select and preview how you want to structure <span className="font-semibold text-indigo-600 dark:text-indigo-400">{template.name}</span></p>
             </div>
             <button 
               onClick={onClose}
               className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
             >
-              <X className="h-5 w-5 text-[--text-muted]" />
+              <X className="h-5 w-5 text-slate-600 dark:text-slate-400" />
             </button>
           </div>
         </div>
         
         <div className="flex-1 flex overflow-hidden">
           {/* Format Selection Sidebar */}
-          <div className="w-80 border-r border-[--border] p-6 flex-shrink-0 overflow-y-auto scrollbar-hide">
-            <h4 className="font-semibold text-[--text] mb-4">Available Formats</h4>
+          <div className="w-80 border-r border-slate-200 dark:border-slate-700 p-6 flex-shrink-0 overflow-y-auto">
+            <h4 className="font-semibold text-slate-900 dark:text-white mb-4">Available Formats</h4>
             <div className="space-y-3">
               {formats.map((format) => {
                 const Icon = format.icon;
@@ -195,24 +196,24 @@ const FormatSelectionModal = ({ template, onSelect, onClose }) => {
                     onClick={() => handleFormatSelect(format)}
                     className={`w-full p-4 rounded-xl border-2 text-left transition-all duration-200 ${
                       isSelected 
-                        ? 'border-[--primary] bg-[--primary]/5 shadow-lg shadow-[--primary]/10' 
-                        : 'border-gray-200 dark:border-gray-700 hover:border-[--primary]/50 bg-gray-50/50 dark:bg-gray-800/50 hover:bg-[--primary]/5'
+                        ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 shadow-lg shadow-indigo-500/10' 
+                        : 'border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600 bg-gray-50/50 dark:bg-gray-800/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/10'
                     }`}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                   >
                     <div className="flex items-start space-x-3">
                       <div className={`p-2 rounded-lg ${
-                        isSelected ? 'bg-[--primary] text-white' : 'bg-[--primary]/10 text-[--primary]'
+                        isSelected ? 'bg-indigo-600 text-white' : 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
                       }`}>
                         <Icon className="h-5 w-5" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h5 className="font-semibold text-[--text] mb-1">{format.title}</h5>
-                        <p className="text-xs text-[--text-muted] mb-2">{format.description}</p>
+                        <h5 className="font-semibold text-slate-900 dark:text-white mb-1">{format.title}</h5>
+                        <p className="text-xs text-slate-600 dark:text-slate-400 mb-2">{format.description}</p>
                         <div className="flex flex-wrap gap-1">
                           {format.benefits.map((benefit, idx) => (
-                            <span key={idx} className="text-xs px-2 py-1 bg-slate-200 dark:bg-slate-700 text-[--text-muted] rounded-full">
+                            <span key={idx} className="text-xs px-2 py-1 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-full">
                               {benefit}
                             </span>
                           ))}
@@ -236,13 +237,13 @@ const FormatSelectionModal = ({ template, onSelect, onClose }) => {
 
           {/* Preview Panel */}
           <div className="flex-1 flex flex-col">
-            <div className="p-6 border-b border-[--border] flex-shrink-0">
+            <div className="p-6 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
               <div className="flex items-center justify-between">
-                <h4 className="font-semibold text-[--text]">
+                <h4 className="font-semibold text-slate-900 dark:text-white">
                   {selectedFormat ? `${selectedFormat.title} Preview` : 'Select a format to preview'}
                 </h4>
                 {selectedFormat && (
-                  <div className="flex items-center space-x-2 text-sm text-[--text-muted]">
+                  <div className="flex items-center space-x-2 text-sm text-slate-600 dark:text-slate-400">
                     <div className={`w-2 h-2 rounded-full ${
                       template.format === selectedFormat.type ? 'bg-green-500' : 'bg-amber-500'
                     }`}></div>
@@ -257,7 +258,7 @@ const FormatSelectionModal = ({ template, onSelect, onClose }) => {
             <div className="flex-1 p-6 overflow-hidden">
               {!selectedFormat ? (
                 <div className="h-full flex items-center justify-center text-center">
-                  <div className="text-[--text-muted]">
+                  <div className="text-slate-600 dark:text-slate-400">
                     <Code size={48} className="mx-auto mb-4 opacity-50" />
                     <p className="text-lg font-medium mb-2">Choose a Format</p>
                     <p className="text-sm">Select a format from the sidebar to see a live preview</p>
@@ -266,14 +267,14 @@ const FormatSelectionModal = ({ template, onSelect, onClose }) => {
               ) : isConverting ? (
                 <div className="h-full flex items-center justify-center">
                   <div className="text-center">
-                    <Loader2 className="animate-spin text-[--primary] mx-auto mb-4" size={32} />
-                    <p className="text-[--text-muted]">Converting to {selectedFormat.title}...</p>
+                    <Loader2 className="animate-spin text-indigo-600 dark:text-indigo-400 mx-auto mb-4" size={32} />
+                    <p className="text-slate-600 dark:text-slate-400">Converting to {selectedFormat.title}...</p>
                   </div>
                 </div>
               ) : (
                 <div className="h-full flex flex-col">
-                  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 flex-1 overflow-auto scrollbar-hide">
-                    <pre className={`text-sm font-mono text-[--text] whitespace-pre-wrap ${
+                  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 flex-1 overflow-auto">
+                    <pre className={`text-sm font-mono text-slate-900 dark:text-white whitespace-pre-wrap ${
                       selectedFormat.type === 'json' ? 'language-json' : 'language-text'
                     }`}>
                       {previewContent}
@@ -300,20 +301,20 @@ const FormatSelectionModal = ({ template, onSelect, onClose }) => {
         </div>
         
         {/* Footer */}
-        <div className="p-6 border-t border-[--border] flex justify-between items-center flex-shrink-0">
-          <div className="text-sm text-[--text-muted]">
+        <div className="p-6 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center flex-shrink-0">
+          <div className="text-sm text-slate-600 dark:text-slate-400">
             {selectedFormat && (
               <span>Ready to use {selectedFormat.title.toLowerCase()} format</span>
             )}
           </div>
           <div className="flex space-x-3">
-            <button onClick={onClose} className="btn btn-secondary">
+            <button onClick={onClose} className="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors">
               Cancel
             </button>
             <button 
               onClick={handleConfirm} 
               disabled={!selectedFormat}
-              className={`btn btn-primary ${
+              className={`px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors ${
                 !selectedFormat ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             >
@@ -352,15 +353,14 @@ const TemplateCard = ({ template, onSelect, isSelected, viewMode }) => {
         <motion.div
           onClick={handleCardClick}
           className={`group relative p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 flex items-center space-x-4 ${
-            isSelected ? 'border-[--primary] bg-indigo-50 dark:bg-indigo-900/20' : 'border-transparent bg-slate-100 dark:bg-slate-800/50 hover:bg-slate-200/70 dark:hover:bg-slate-700/50'
+            isSelected ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-transparent bg-slate-100 dark:bg-slate-800/50 hover:bg-slate-200/70 dark:hover:bg-slate-700/50'
           }`}
           whileHover={{ x: 4 }}
         >
           <div className="flex-1">
             <div className="flex items-center justify-between">
-              <h3 className="font-bold text-lg text-[--text]">{template.name}</h3>
+              <h3 className="font-bold text-lg text-slate-900 dark:text-white">{template.name}</h3>
               <div className="flex items-center space-x-2">
-
                 {isSelected && (
                   <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="p-1 bg-green-500 rounded-full text-white">
                     <CheckCircle size={16} />
@@ -368,7 +368,7 @@ const TemplateCard = ({ template, onSelect, isSelected, viewMode }) => {
                 )}
               </div>
             </div>
-            <p className="text-sm text-[--text-muted] mt-1">{template.description}</p>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{template.description}</p>
           </div>
           
           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -399,7 +399,7 @@ const TemplateCard = ({ template, onSelect, isSelected, viewMode }) => {
       <motion.div
         onClick={handleCardClick}
         className={`group relative p-5 rounded-xl border-2 cursor-pointer transition-all duration-200 ${
-          isSelected ? 'border-[--primary] bg-indigo-50 dark:bg-indigo-900/20' : 'border-transparent bg-slate-100 dark:bg-slate-800/50 hover:bg-slate-200/70 dark:hover:bg-slate-700/50'
+          isSelected ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-transparent bg-slate-100 dark:bg-slate-800/50 hover:bg-slate-200/70 dark:hover:bg-slate-700/50'
         }`}
         whileHover={{ y: -5 }}
       >
@@ -420,8 +420,8 @@ const TemplateCard = ({ template, onSelect, isSelected, viewMode }) => {
             <Code size={12} />
           </motion.button>
         </div>
-        <h3 className="font-bold text-lg text-[--text] pr-8">{template.name}</h3>
-        <p className="text-sm text-[--text-muted] mt-1 mb-6 line-clamp-2">{template.description}</p>
+        <h3 className="font-bold text-lg text-slate-900 dark:text-white pr-8">{template.name}</h3>
+        <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 mb-6 line-clamp-2">{template.description}</p>
       </motion.div>
 
       <AnimatePresence>
@@ -437,34 +437,51 @@ const TemplateCard = ({ template, onSelect, isSelected, viewMode }) => {
   );
 };
 
-const TemplateGallery = ({ isOpen, onClose, onSelectTemplate }) => {
+const TemplateGallery = ({ isOpen, onClose, onSelectTemplate, templates: templatesProp, loading: loadingProp, error: errorProp }) => {
   const [templates, setTemplates] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
   const [selected, setSelected] = useState(null);
-  const [selectedCategory, setSelectedCategory] = useState('all');
   const [viewMode, setViewMode] = useState('grid');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // Sync external props into local state when provided
+  useEffect(() => {
+    if (typeof templatesProp !== 'undefined') {
+      setTemplates(Array.isArray(templatesProp) ? templatesProp : []);
+      setLoading(!!loadingProp);
+      setError(errorProp || '');
+    }
+  }, [templatesProp, loadingProp, errorProp]);
 
   useEffect(() => {
+    // If templates are provided by parent, skip internal fetch
+    if (typeof templatesProp !== 'undefined') return;
+
+    const fetchTemplates = async () => {
+      try {
+        setLoading(true);
+        const response = await axios.get('/api/templates');
+        // Ensure templates is always an array
+        setTemplates(Array.isArray(response.data) ? response.data : []);
+        setError('');
+      } catch (err) {
+        console.error('Template fetch error:', err);
+        setError('Could not load templates.');
+        setTemplates([]); // Set empty array on error
+      } finally {
+        setLoading(false);
+      }
+    };
+
     if (isOpen) {
-      const fetchTemplates = async () => {
-        try {
-          setLoading(true);
-          const response = await axios.get('/api/templates');
-          setTemplates(response.data);
-          setError('');
-        } catch (err) {
-          setError('Could not load templates.');
-        } finally {
-          setLoading(false);
-        }
-      };
       fetchTemplates();
     }
-  }, [isOpen]);
+  }, [isOpen, templatesProp]);
 
   const getTemplateCategory = (template) => {
+    if (!template?.name) return 'other';
     const name = template.name.toLowerCase();
     if (name.includes('react') || name.includes('vue') || name.includes('angular') || name.includes('next')) return 'frontend';
     if (name.includes('express') || name.includes('spring') || name.includes('django') || name.includes('fastapi') || name.includes('rails') || name.includes('gin')) return 'backend';
@@ -485,8 +502,9 @@ const TemplateGallery = ({ isOpen, onClose, onSelectTemplate }) => {
    .filter(cat => cat.count > 0 || cat.id === 'all');
 
  const filteredTemplates = templates.filter(template => {
-   const matchesSearch = template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        template.description.toLowerCase().includes(searchTerm.toLowerCase());
+   if (!template) return false;
+   const matchesSearch = (template.name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+                        (template.description?.toLowerCase() || '').includes(searchTerm.toLowerCase());
    const matchesCategory = selectedCategory === 'all' || getTemplateCategory(template) === selectedCategory;
    return matchesSearch && matchesCategory;
  });
@@ -513,10 +531,10 @@ const TemplateGallery = ({ isOpen, onClose, onSelectTemplate }) => {
         exit={{ scale: 0.9, opacity: 0 }}
       >
        {/* Header */}
-       <div className="flex items-center justify-between p-6 border-b border-[--border]">
+       <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700">
          <div className="flex items-center space-x-3">
-           <h2 className="text-2xl font-bold text-[--text]">Template Gallery</h2>
-           <span className="px-2 py-1 bg-[--primary]/10 text-[--primary] rounded-full text-sm font-medium">
+           <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Template Gallery</h2>
+           <span className="px-2 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-full text-sm font-medium">
              {filteredTemplates.length} templates
            </span>
          </div>
@@ -526,8 +544,8 @@ const TemplateGallery = ({ isOpen, onClose, onSelectTemplate }) => {
                onClick={() => setViewMode('grid')}
                className={`p-2 rounded transition-colors ${
                  viewMode === 'grid' 
-                   ? 'bg-white dark:bg-slate-700 text-[--primary] shadow-sm' 
-                   : 'text-[--text-muted] hover:text-[--text]'
+                   ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' 
+                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                }`}
                title="Grid view"
              >
@@ -537,8 +555,8 @@ const TemplateGallery = ({ isOpen, onClose, onSelectTemplate }) => {
                onClick={() => setViewMode('list')}
                className={`p-2 rounded transition-colors ${
                  viewMode === 'list' 
-                   ? 'bg-white dark:bg-slate-700 text-[--primary] shadow-sm' 
-                   : 'text-[--text-muted] hover:text-[--text]'
+                   ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' 
+                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                }`}
                title="List view"
              >
@@ -555,20 +573,20 @@ const TemplateGallery = ({ isOpen, onClose, onSelectTemplate }) => {
        </div>
 
        {/* Filters */}
-       <div className="p-6 border-b border-[--border] space-y-4">
+       <div className="p-6 border-b border-slate-200 dark:border-slate-700 space-y-4">
          <div className="relative">
-           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-[--text-muted]" />
+           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600 dark:text-slate-400" />
            <input 
              type="text" 
              placeholder="Search templates..." 
              value={searchTerm} 
              onChange={(e) => setSearchTerm(e.target.value)} 
-             className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 focus:border-[--primary] focus:ring-2 focus:ring-[--primary]/20 outline-none transition-all" 
+             className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all" 
            />
          </div>
          
          <div className="flex items-center space-x-3">
-           <Filter size={16} className="text-[--text-muted]" />
+           <Filter size={16} className="text-slate-600 dark:text-slate-400" />
            <div className="flex flex-wrap gap-2">
              {categories.map((cat) => (
                <motion.button 
@@ -576,8 +594,8 @@ const TemplateGallery = ({ isOpen, onClose, onSelectTemplate }) => {
                  onClick={() => setSelectedCategory(cat.id)} 
                  className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                    selectedCategory === cat.id 
-                     ? 'bg-[--primary] text-white shadow-lg shadow-[--primary]/25' 
-                     : 'bg-slate-100 dark:bg-slate-800 text-[--text-muted] hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-[--text]'
+                     ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/25' 
+                     : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white'
                  }`}
                  whileHover={{ scale: 1.05 }}
                  whileTap={{ scale: 0.95 }}
@@ -600,7 +618,7 @@ const TemplateGallery = ({ isOpen, onClose, onSelectTemplate }) => {
        <div className="flex-1 overflow-y-auto p-6">
          {loading ? (
            <div className="flex justify-center items-center h-full">
-             <Loader2 className="animate-spin text-[--primary]" size={40} />
+             <Loader2 className="animate-spin text-indigo-600 dark:text-indigo-400" size={40} />
            </div>
          ) : error ? (
            <div className="flex flex-col justify-center items-center h-full text-red-500">
@@ -620,7 +638,7 @@ const TemplateGallery = ({ isOpen, onClose, onSelectTemplate }) => {
                {filteredTemplates.length > 0 ? (
                  filteredTemplates.map((template, index) => (
                    <motion.div
-                     key={template.id}
+                     key={template?.id || index}
                      initial={{ opacity: 0, y: 20 }}
                      animate={{ opacity: 1, y: 0 }}
                      exit={{ opacity: 0, y: -20 }}
@@ -630,7 +648,7 @@ const TemplateGallery = ({ isOpen, onClose, onSelectTemplate }) => {
                      <TemplateCard 
                        template={template} 
                        onSelect={handleSelect} 
-                       isSelected={selected?.id === template.id}
+                       isSelected={selected?.id === template?.id}
                        viewMode={viewMode}
                      />
                    </motion.div>
@@ -641,7 +659,7 @@ const TemplateGallery = ({ isOpen, onClose, onSelectTemplate }) => {
                    initial={{ opacity: 0 }}
                    animate={{ opacity: 1 }}
                  >
-                   <div className="text-[--text-muted]">
+                   <div className="text-slate-600 dark:text-slate-400">
                      <Search size={48} className="mx-auto mb-4 opacity-50" />
                      <p className="text-lg font-medium mb-2">No templates found</p>
                      <p className="text-sm">Try adjusting your search or filters</p>
@@ -654,13 +672,13 @@ const TemplateGallery = ({ isOpen, onClose, onSelectTemplate }) => {
        </div>
 
        {/* Footer */}
-       <div className="p-6 border-t border-[--border] bg-slate-50/50 dark:bg-slate-800/50 rounded-b-2xl">
+       <div className="p-6 border-t border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 rounded-b-2xl">
          <div className="flex items-center justify-between">
-           <p className="text-sm text-[--text-muted]">
+           <p className="text-sm text-slate-600 dark:text-slate-400">
              Select a template to customize and use in your project
            </p>
            <div className="flex space-x-3">
-             <button onClick={onClose} className="btn btn-secondary">
+             <button onClick={onClose} className="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors">
                Cancel
              </button>
            </div>
